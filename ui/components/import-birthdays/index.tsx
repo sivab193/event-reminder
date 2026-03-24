@@ -48,7 +48,7 @@ export function ImportBirthdays({ onImportComplete }: { onImportComplete: () => 
             await addBirthday({
               userId: user.uid,
               name,
-              company: "Imported Contact",
+              association: "Imported Contact",
               birthdate,
               meetDate: new Date().toISOString().split("T")[0],
               timezone
@@ -100,7 +100,7 @@ export function ImportBirthdays({ onImportComplete }: { onImportComplete: () => 
             await addBirthday({
               userId: user.uid,
               name,
-              company: "Imported Contact (VCF)",
+              association: "Imported Contact (VCF)",
               birthdate: formattedBday,
               meetDate: new Date().toISOString().split("T")[0],
               timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"

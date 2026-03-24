@@ -16,11 +16,12 @@ export async function GET(
     let icsContent = [
       "BEGIN:VCALENDAR",
       "VERSION:2.0",
-      "PRODID:-//Birthday Tracker//EN",
+      "PRODID:-//Event Reminder//EN",
       "CALSCALE:GREGORIAN",
       "METHOD:PUBLISH",
-      "X-WR-CALNAME:Birthday Reminders",
-      "X-WR-CALDESC:Your tracked birthdays",
+      "X-WR-CALNAME:Event Reminders",
+      "X-WR-CALDESC:Your tracked events",
+      "X-PUBLISHED-TTL:PT1H",
       "REFRESH-INTERVAL;VALUE=DURATION:PT12H",
     ]
 
@@ -28,13 +29,14 @@ export async function GET(
       // birthday.birthdate is "YYYY-MM-DD"
       // We want to format it as YYYYMMDD for ICS
       const dtstart = birthday.birthdate.replace(/-/g, "")
-      const uid = `${birthday.id}@birthdaytracker.app`
-
+      const uid = `${birthday.id}@eventreminder.app`
+      const dtstamp = new Date().toISOString().replace(/[-:]/g, "").split(".")[0] + "Z"
       icsContent.push(
         "BEGIN:VEVENT",
         `UID:${uid}`,
+        `DTSTAMP:${dtstamp}`,
         `SUMMARY:🎂 ${birthday.name}'s Birthday`,
-        `DESCRIPTION:Company: ${birthday.company}\\nTimezone: ${birthday.timezone}`,
+        `DESCRIPTION:Association: ${birthday.association || birthday.company || 'None'}\\nTimezone: ${birthday.timezone}`,
         `DTSTART;VALUE=DATE:${dtstart}`,
         "RRULE:FREQ=YEARLY",
         "TRANSP:TRANSPARENT",

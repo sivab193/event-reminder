@@ -17,16 +17,21 @@ export function Stats() {
     useEffect(() => {
         const countersRef = doc(db, "stats", "counters");
 
-        // Increment visits on mount
+        // Increment visits on mount, but only if they haven't visited before (unique)
         (async () => {
-            try {
-                await updateDoc(countersRef, { visits: increment(1) });
-            } catch {
-                // Document might not exist yet — create it
+            const hasVisited = localStorage.getItem("hasVisited");
+            if (!hasVisited) {
                 try {
-                    await setDoc(countersRef, { users: 0, birthdaysTracked: 0, visits: 1 }, { merge: true });
-                } catch (e) {
-                    // Silently ignore if permissions prevent writes
+                    await updateDoc(countersRef, { visits: increment(1) });
+                    localStorage.setItem("hasVisited", "true");
+                } catch {
+                    // Document might not exist yet — create it
+                    try {
+                        await setDoc(countersRef, { users: 0, birthdaysTracked: 0, visits: 1 }, { merge: true });
+                        localStorage.setItem("hasVisited", "true");
+                    } catch (e) {
+                        // Silently ignore if permissions prevent writes
+                    }
                 }
             }
         })();

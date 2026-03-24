@@ -29,7 +29,7 @@ const db = admin.firestore();
 
 const server = new Server(
   {
-    name: "birthday-tracker-mcp",
+    name: "event-reminder-mcp",
     version: "1.0.0",
   },
   {
@@ -146,7 +146,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("Birthday Tracker MCP server running on stdio");
+  console.error("Event Reminder MCP server running on stdio");
 }
 
 main().catch((error) => {

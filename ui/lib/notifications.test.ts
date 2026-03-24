@@ -15,7 +15,7 @@ describe('notifications', () => {
   const mockBirthday: Birthday = {
     id: '1',
     name: 'John Doe',
-    company: 'ACME Corp',
+    association: 'ACME Corp',
     birthdate: '1990-01-01',
     meetDate: '2020-01-01',
     timezone: 'UTC',

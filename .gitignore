@@ -25,8 +25,19 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# lock files (use pnpm-lock.yaml)
 /package-lock.json
 
+# OS
 **/.DS_Store
 
-# deploy now
+# Python
+__pycache__/
+*.pyc
+
+# Archives
+*.zip
+
+# Firebase
+serviceAccountKey.json

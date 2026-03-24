@@ -6,10 +6,27 @@ export interface UserProfile {
   userId: string
   createdAt: number
   notifications?: {
-    email: { enabled: boolean; address: string }
-    telegram: { enabled: boolean; chatId: string }
-    discord: { enabled: boolean; webhookUrl: string }
+    reminderTiming: string // global preset: "midnight" | "-15m" | "+15m" | "+1h" | "+6h" | "+10h"
+    email: { enabled: boolean; address: string; verified?: boolean }
+    telegram: { enabled: boolean; chatId: string; verified?: boolean }
+    discord: { enabled: boolean; webhookUrl: string; verified?: boolean }
   }
+}
+
+export const REMINDER_TIMING_PRESETS = [
+  { value: "midnight", label: "Start of day (12:00 AM)", description: "Exactly midnight in event timezone" },
+  { value: "-15m", label: "15 minutes before midnight", description: "11:45 PM the day before" },
+  { value: "+15m", label: "15 minutes after midnight", description: "12:15 AM on event day" },
+  { value: "+1h", label: "1 hour after midnight", description: "1:00 AM on event day" },
+  { value: "+6h", label: "Morning (6:00 AM)", description: "6:00 AM on event day" },
+  { value: "+10h", label: "Mid-morning (10:00 AM)", description: "10:00 AM on event day" },
+] as const
+
+const DEFAULT_NOTIFICATIONS = {
+  reminderTiming: "midnight" as string,
+  email: { enabled: true, address: "", verified: false },
+  telegram: { enabled: false, chatId: "", verified: false },
+  discord: { enabled: false, webhookUrl: "", verified: false },
 }
 
 export async function createUserProfile(userId: string, email: string) {
@@ -18,9 +35,8 @@ export async function createUserProfile(userId: string, email: string) {
     userId,
     createdAt: Date.now(),
     notifications: {
-      email: { enabled: true, address: email },
-      telegram: { enabled: false, chatId: "" },
-      discord: { enabled: false, webhookUrl: "" },
+      ...DEFAULT_NOTIFICATIONS,
+      email: { enabled: true, address: email, verified: false },
     },
   })
 
@@ -49,10 +65,13 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
     // Ensure notifications exist for legacy users
     if (!data.notifications) {
       data.notifications = {
-        email: { enabled: true, address: data.email },
-        telegram: { enabled: false, chatId: "" },
-        discord: { enabled: false, webhookUrl: "" },
+        ...DEFAULT_NOTIFICATIONS,
+        email: { enabled: true, address: data.email, verified: false },
       }
+    }
+    // Migrate legacy per-channel timings to global
+    if (!data.notifications.reminderTiming) {
+      data.notifications.reminderTiming = "midnight"
     }
     return data
   }
@@ -65,10 +84,12 @@ export async function getAllUserProfiles(): Promise<UserProfile[]> {
     const data = doc.data() as UserProfile
     if (!data.notifications) {
       data.notifications = {
-        email: { enabled: true, address: data.email },
-        telegram: { enabled: false, chatId: "" },
-        discord: { enabled: false, webhookUrl: "" },
+        ...DEFAULT_NOTIFICATIONS,
+        email: { enabled: true, address: data.email, verified: false },
       }
+    }
+    if (!data.notifications.reminderTiming) {
+      data.notifications.reminderTiming = "midnight"
     }
     return data
   })

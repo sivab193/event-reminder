@@ -14,7 +14,7 @@ vi.mock("@/hooks/use-toast", () => ({
 // Mock components that might be problematic in unit tests
 vi.mock("@/components/birthday-form", () => ({
   BirthdayForm: ({ onSubmit }: any) => (
-    <button onClick={() => onSubmit({ name: "New Person", birthdate: "1990-01-01", company: "Test", timezone: "UTC", meetDate: "2020-01-01" })}>
+    <button onClick={() => onSubmit({ name: "New Person", birthdate: "1990-01-01", association: "Test", timezone: "UTC", meetDate: "2020-01-01" })}>
       Submit Form
     </button>
   )
@@ -35,13 +35,13 @@ describe("BirthdayDashboard", () => {
     render(<BirthdayDashboard />)
 
     await waitFor(() => {
-      expect(screen.getByText(/No birthdays yet/i)).toBeDefined()
+      expect(screen.getByText(/No events yet/i)).toBeDefined()
     })
   })
 
   it("renders list of birthdays after loading", async () => {
     const mockBirthdays = [
-      { id: "1", name: "Alice", birthdate: "1990-01-01", userId: "user123", company: "A", timezone: "UTC", meetDate: "2020-01-01" }
+      { id: "1", name: "Alice", birthdate: "1990-01-01", userId: "user123", association: "A", timezone: "UTC", meetDate: "2020-01-01" }
     ]
     ;(getBirthdays as any).mockResolvedValue(mockBirthdays)
     
@@ -59,15 +59,15 @@ describe("BirthdayDashboard", () => {
     render(<BirthdayDashboard />)
 
     // Wait for initial load
-    await waitFor(() => expect(screen.queryByText("Loading birthdays...")).toBeNull())
+    await waitFor(() => expect(screen.queryByText(/Loading/i)).toBeNull())
 
-    // Click "Add Birthday" to open dialog (which we mocked to just show a submit button)
-    const addButton = screen.getByText(/Add Birthday/i, { selector: 'button' })
-    fireEvent.click(addButton)
+    // Click "Add Your First Event" to open dialog (which we mocked to just show a submit button)
+    const addButton = screen.getAllByRole("button").find(b => b.textContent?.includes("Add Your First Event"))
+    if (addButton) fireEvent.click(addButton)
 
     // Mock the second load to include the new birthday
     ;(getBirthdays as any).mockResolvedValueOnce([
-      { id: "new-id", name: "New Person", birthdate: "1990-01-01", userId: "user123", company: "Test", timezone: "UTC", meetDate: "2020-01-01" }
+      { id: "new-id", name: "New Person", birthdate: "1990-01-01", userId: "user123", association: "Test", timezone: "UTC", meetDate: "2020-01-01" }
     ])
 
     // Click the mocked submit button inside BirthdayForm
@@ -78,5 +78,36 @@ describe("BirthdayDashboard", () => {
       expect(addBirthday).toHaveBeenCalled()
       expect(screen.getByText("New Person")).toBeDefined()
     })
+  })
+
+  it("filters events correctly", async () => {
+    const mockBirthdays = [
+      { id: "1", name: "Alice", birthdate: "1990-01-01", userId: "u1", association: "BigTech", timezone: "UTC", meetDate: "2020-05-01" },
+      { id: "2", name: "Zack", birthdate: "1985-12-15", userId: "u1", association: "StartupInc", timezone: "EST", meetDate: "2022-08-01" },
+      { id: "3", name: "Bob", birthdate: "1995-01-20", userId: "u1", association: "BigTech", timezone: "UTC", meetDate: "2020-05-01" }
+    ]
+    ;(getBirthdays as any).mockResolvedValue(mockBirthdays)
+    
+    render(<BirthdayDashboard />)
+
+    await waitFor(() => expect(screen.queryByText(/Loading/i)).toBeNull())
+
+    // Open filters
+    const filterBtn = screen.getByText(/Filters & Sort/i)
+    fireEvent.click(filterBtn)
+
+    // Test Association Filter
+    const assocInput = screen.getByPlaceholderText(/Search events.../i)
+    fireEvent.change(assocInput, { target: { value: "BigTech" } })
+    
+    expect(screen.getByText("Alice")).toBeDefined()
+    expect(screen.getByText("Bob")).toBeDefined()
+    expect(screen.queryByText("Zack")).toBeNull()
+
+    // Reset filters
+    const resetBtn = screen.getByText(/Reset Filters/i)
+    fireEvent.click(resetBtn)
+
+    expect(screen.getByText("Zack")).toBeDefined()
   })
 })

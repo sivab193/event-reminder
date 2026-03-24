@@ -10,6 +10,7 @@ import {
   createUserWithEmailAndPassword,
   signOut,
   sendPasswordResetEmail,
+  sendEmailVerification,
   signInWithPopup,
   GoogleAuthProvider
 } from "firebase/auth"
@@ -82,6 +83,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const result = await createUserWithEmailAndPassword(auth, email, password)
       await createUserProfile(result.user.uid, email)
+      await sendEmailVerification(result.user)
     } catch (error: any) {
       throw new Error(getAuthErrorMessage(error.code))
     }

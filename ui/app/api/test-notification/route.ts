@@ -5,7 +5,7 @@ import type { Birthday } from "@/lib/types"
 
 export async function POST(request: Request) {
   try {
-    const { userId, birthday }: { userId: string; birthday: Birthday } = await request.json()
+    const { userId, birthday, channel }: { userId: string; birthday: Birthday; channel?: string } = await request.json()
 
     if (!userId || !birthday) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
@@ -16,7 +16,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "User profile not found" }, { status: 404 })
     }
 
-    await triggerNotifications(profile, birthday)
+    // If a specific channel is passed, disable the others for the test run
+    const testProfile = { ...profile }
+    if (channel && testProfile.notifications) {
+      if (channel !== "email") testProfile.notifications.email.enabled = false;
+      if (channel !== "telegram") testProfile.notifications.telegram.enabled = false;
+      if (channel !== "discord") testProfile.notifications.discord.enabled = false;
+    }
+
+    await triggerNotifications(testProfile, birthday)
 
     return NextResponse.json({ success: true, message: "Test notifications sent" })
   } catch (error) {

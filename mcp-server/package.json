@@ -1,10 +1,10 @@
 {
-  "name": "birthday-tracker-mcp",
+  "name": "event-reminder-mcp",
   "version": "1.0.0",
-  "description": "MCP server to query birthday tracker database",
+  "description": "MCP server to query Event Reminder database",
   "type": "module",
   "bin": {
-    "birthday-tracker-mcp": "./index.js"
+    "event-reminder-mcp": "./index.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.1",

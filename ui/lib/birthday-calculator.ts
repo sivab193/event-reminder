@@ -1,7 +1,8 @@
 import { differenceInYears, isLeapYear, getYear, setYear, isBefore, addYears, parseISO } from "date-fns"
 
 export class BirthdayCalculator {
-  static getAge(dateOfBirth: Date | string, currentDate: Date = new Date()): number {
+  static getAge(dateOfBirth: Date | string, currentDate: Date = new Date(), unknownYear: boolean = false): number | null {
+    if (unknownYear) return null;
     const dob = typeof dateOfBirth === 'string' ? parseISO(dateOfBirth) : dateOfBirth;
     return differenceInYears(currentDate, dob);
   }

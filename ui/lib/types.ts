@@ -1,10 +1,13 @@
 export interface Birthday {
   id: string
   name: string
-  company: string
+  company?: string // Keeping for backward compatibility temporarily, but we use association
+  association?: string
+  type?: string
+  unknownYear?: boolean
   birthdate: string // Format: YYYY-MM-DD
-  meetDate: string // Format: YYYY-MM-DD
-  timezone: string
+  meetDate?: string // Format: YYYY-MM-DD
+  timezone?: string
   userId: string
   createdAt: number
 }

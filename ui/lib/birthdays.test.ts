@@ -15,7 +15,7 @@ describe('birthdays', () => {
     (addDoc as any).mockResolvedValueOnce({ id: 'bday1' })
     const id = await addBirthday({
       name: 'Test',
-      company: 'T',
+      association: 'T',
       birthdate: '2000-01-01',
       meetDate: '2020-01-01',
       timezone: 'UTC',
@@ -37,7 +37,7 @@ describe('birthdays', () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     await addBirthday({
       name: 'Test',
-      company: 'T',
+      association: 'T',
       birthdate: '2000-01-01',
       meetDate: '2020-01-01',
       timezone: 'UTC',

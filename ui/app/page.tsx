@@ -1,26 +1,28 @@
 "use client"
 
 import { useAuth } from "@/lib/auth-context"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useEffect } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Cake, Mail, Globe, Shield } from "lucide-react"
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
+import { AuthForm } from "@/components/auth-form"
+import { Cake, Mail, Zap, Shield, Globe, Clock, MessageSquare, LayoutDashboard } from "lucide-react"
 import { Stats } from "@/components/stats"
-import { Footer } from "@/components/footer"
 
 export default function Home() {
   const { user, loading } = useAuth()
   const router = useRouter()
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
 
-  useEffect(() => {
-    if (!loading && user) {
-      router.push("/dashboard")
-    }
-  }, [user, loading, router])
+  const handleAuthSuccess = () => {
+    setIsAuthModalOpen(false)
+    router.push("/dashboard")
+  }
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex flex-1 items-center justify-center">
         <div className="text-center">
           <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
           <p className="mt-4 text-muted-foreground">Loading...</p>
@@ -29,76 +31,114 @@ export default function Home() {
     )
   }
 
-  if (user) {
-    return null
-  }
-
   return (
-    <>
-      <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 pb-20">
-        <div className="container mx-auto px-4 py-16">
-          <div className="max-w-4xl mx-auto text-center">
-            <div className="inline-flex h-20 w-20 items-center justify-center rounded-2xl bg-primary/10 mb-6">
-              <Cake className="h-10 w-10 text-primary" />
-            </div>
-
-            <h1 className="text-5xl font-bold text-foreground mb-4 text-balance">Never Miss a Birthday Again</h1>
-
-            <p className="text-xl text-muted-foreground mb-8 text-pretty max-w-2xl mx-auto">
-              Keep track of important birthdays and receive timely email reminders. Perfect for maintaining professional
-              relationships across timezones.
-            </p>
-
-            <div className="flex gap-4 justify-center mb-16">
-              <Button size="lg" onClick={() => router.push("/login")}>
-                Get Started
-              </Button>
-              <Button size="lg" variant="outline" onClick={() => router.push("/login")}>
-                Sign In
-              </Button>
-            </div>
-
-            <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4 max-w-5xl mx-auto mt-16 mb-16">
-              <div className="flex flex-col items-center text-center p-6">
-                <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-                  <Cake className="h-6 w-6 text-primary" />
-                </div>
-                <h3 className="font-semibold text-foreground mb-2">Track Birthdays</h3>
-                <p className="text-sm text-muted-foreground">
-                  Store names, companies, dates, and more in one organized place
-                </p>
-              </div>
-
-              <div className="flex flex-col items-center text-center p-6">
-                <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-                  <Mail className="h-6 w-6 text-primary" />
-                </div>
-                <h3 className="font-semibold text-foreground mb-2">Email Reminders</h3>
-                <p className="text-sm text-muted-foreground">Get notified 5 minutes before midnight on each birthday</p>
-              </div>
-
-              <div className="flex flex-col items-center text-center p-6">
-                <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-                  <Globe className="h-6 w-6 text-primary" />
-                </div>
-                <h3 className="font-semibold text-foreground mb-2">Timezone Support</h3>
-                <p className="text-sm text-muted-foreground">Track contacts across different timezones accurately</p>
-              </div>
-
-              <div className="flex flex-col items-center text-center p-6">
-                <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-                  <Shield className="h-6 w-6 text-primary" />
-                </div>
-                <h3 className="font-semibold text-foreground mb-2">Secure & Private</h3>
-                <p className="text-sm text-muted-foreground">Your data is protected with Firebase authentication</p>
-              </div>
-            </div>
-
-            <Stats />
+    <div className="flex-1 flex flex-col bg-gradient-to-b from-background to-muted/20">
+      <div className="flex-1 flex flex-col justify-center container mx-auto px-4 py-6 max-w-5xl">
+        {/* Hero */}
+        <div className="text-center mb-6">
+          <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 mb-3">
+            <Cake className="h-7 w-7 text-primary" />
+          </div>
+          <h1 className="text-3xl sm:text-4xl font-bold text-foreground mb-2 text-balance">The Ultimate Event Reminder</h1>
+          <p className="text-base text-muted-foreground text-pretty max-w-xl mx-auto mb-4">
+            Track events, birthdays, and anniversaries — get smart reminders across multiple platforms.
+          </p>
+          <div className="flex gap-3 justify-center">
+            {user ? (
+              <Link href="/dashboard">
+                <Button size="default">
+                  <LayoutDashboard className="h-4 w-4 mr-2" />
+                  Go to Dashboard
+                </Button>
+              </Link>
+            ) : (
+              <>
+                <Button size="default" onClick={() => setIsAuthModalOpen(true)}>
+                  Get Started
+                </Button>
+                <Button size="default" variant="outline" onClick={() => setIsAuthModalOpen(true)}>
+                  Sign In
+                </Button>
+              </>
+            )}
           </div>
         </div>
+
+        {/* Feature Grid */}
+        <div className="grid gap-3 grid-cols-2 lg:grid-cols-3 mb-6">
+          <div className="flex items-start gap-3 p-3 bg-card/50 rounded-lg border">
+            <div className="h-9 w-9 shrink-0 rounded-md bg-primary/10 flex items-center justify-center">
+              <Cake className="h-4 w-4 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-foreground text-sm">Track Any Event</h3>
+              <p className="text-xs text-muted-foreground leading-tight mt-0.5">Birthdays, anniversaries, or custom events with filtering.</p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3 p-3 bg-card/50 rounded-lg border">
+            <div className="h-9 w-9 shrink-0 rounded-md bg-primary/10 flex items-center justify-center">
+              <MessageSquare className="h-4 w-4 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-foreground text-sm">Multi-Channel Alerts</h3>
+              <p className="text-xs text-muted-foreground leading-tight mt-0.5">Telegram, Discord, and Email integration.</p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3 p-3 bg-card/50 rounded-lg border">
+            <div className="h-9 w-9 shrink-0 rounded-md bg-primary/10 flex items-center justify-center">
+              <Clock className="h-4 w-4 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-foreground text-sm">Flexible Timings</h3>
+              <p className="text-xs text-muted-foreground leading-tight mt-0.5">Custom reminder offsets (5 mins before, 10h after).</p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3 p-3 bg-card/50 rounded-lg border relative overflow-hidden">
+            <div className="absolute -right-4 -top-4 h-16 w-16 bg-primary/20 rounded-full blur-xl"></div>
+            <div className="h-9 w-9 shrink-0 rounded-md bg-primary/10 flex items-center justify-center z-10">
+              <Zap className="h-4 w-4 text-primary" />
+            </div>
+            <div className="z-10">
+              <h3 className="font-semibold text-foreground text-sm">Sync Integrations</h3>
+              <p className="text-xs text-muted-foreground leading-tight mt-0.5">
+                <a href="https://zh.siv19.dev/" target="_blank" rel="noreferrer" className="text-primary hover:underline font-medium">ZeroHour</a> & WhatsApp coming soon.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3 p-3 bg-card/50 rounded-lg border border-dashed opacity-60">
+            <div className="h-9 w-9 shrink-0 rounded-md bg-primary/10 flex items-center justify-center">
+              <Globe className="h-4 w-4 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-foreground text-sm">Bulk Importing</h3>
+              <p className="text-xs text-muted-foreground leading-tight mt-0.5"><span className="text-primary font-medium">Coming soon!</span> CSV & calendar import.</p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3 p-3 bg-card/50 rounded-lg border">
+            <div className="h-9 w-9 shrink-0 rounded-md bg-primary/10 flex items-center justify-center">
+              <Shield className="h-4 w-4 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-foreground text-sm">Privacy First</h3>
+              <p className="text-xs text-muted-foreground leading-tight mt-0.5">Secure storage, never shared. No creeping logs.</p>
+            </div>
+          </div>
+        </div>
+
+        <Stats />
       </div>
-      <Footer />
-    </>
+
+      <Dialog open={isAuthModalOpen} onOpenChange={setIsAuthModalOpen}>
+        <DialogContent className="sm:max-w-md p-0 bg-transparent border-none shadow-none">
+          <DialogTitle className="sr-only">Authentication</DialogTitle>
+          <AuthForm onSuccess={handleAuthSuccess} />
+        </DialogContent>
+      </Dialog>
+    </div>
   )
 }

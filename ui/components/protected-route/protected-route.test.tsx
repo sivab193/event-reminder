@@ -38,12 +38,12 @@ describe("ProtectedRoute", () => {
       </ProtectedRoute>
     )
 
-    expect(mockPush).toHaveBeenCalledWith("/login")
+    expect(mockPush).toHaveBeenCalledWith("/")
     expect(screen.queryByText("Protected Content")).toBeNull()
   })
 
   it("renders children when user is authenticated", () => {
-    ;(useAuth as any).mockReturnValue({ user: { uid: "123" }, loading: false })
+    ;(useAuth as any).mockReturnValue({ user: { uid: "123", emailVerified: true }, loading: false })
     
     render(
       <ProtectedRoute>
