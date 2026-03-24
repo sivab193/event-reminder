@@ -71,7 +71,7 @@ graph TD
     C -->|Pops from email_queue| D[Email Worker]
     C -->|Pops from telegram_queue| E[Telegram Worker]
     C -->|Pops from discord_queue| F[Discord Worker]
-    D --> G(Resend API)
+    D --> G(SMTP / Gmail)
     E --> H(Telegram Bot API)
     F --> I(Discord Webhook)
 ```

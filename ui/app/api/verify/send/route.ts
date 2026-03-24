@@ -1,10 +1,20 @@
 import { NextResponse } from "next/server"
 import { doc, setDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
-import { Resend } from "resend"
-// Mocking the telegram bot import (you would typically use an HTTP client or telegram library)
+import nodemailer from "nodemailer"
 
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
+const smtpPort = parseInt(process.env.SMTP_PORT || "465")
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST || "smtp.gmail.com",
+  port: smtpPort,
+  secure: smtpPort === 465,
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASSWORD,
+  },
+})
+
+const SMTP_FROM = process.env.SMTP_FROM || process.env.SMTP_USER || ""
 
 export async function POST(request: Request) {
   try {
@@ -27,11 +37,11 @@ export async function POST(request: Request) {
 
     // Send the code via the requested channel
     if (channel === "email") {
-      if (!resend || !process.env.FROM_EMAIL) {
-        return NextResponse.json({ error: "Email provider not configured" }, { status: 500 })
+      if (!SMTP_FROM || !process.env.SMTP_USER) {
+        return NextResponse.json({ error: "Email SMTP not configured" }, { status: 500 })
       }
-      await resend.emails.send({
-        from: process.env.FROM_EMAIL,
+      await transporter.sendMail({
+        from: SMTP_FROM,
         to: identifier,
         subject: "Event Reminder Verification Code",
         html: `<p>Your verification code is: <strong>${code}</strong></p><p>This code will expire in 15 minutes.</p>`,

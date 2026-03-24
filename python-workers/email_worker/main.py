@@ -1,19 +1,27 @@
 import os
 import json
 import time
-import resend
 import redis
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 redis_host = os.getenv('REDIS_HOST', 'localhost')
 r = redis.Redis(host=redis_host, port=6379, db=0)
 
-resend.api_key = os.getenv('RESEND_API_KEY')
+# SMTP Config
+SMTP_HOST = os.getenv('SMTP_HOST', 'smtp.gmail.com')
+SMTP_PORT = int(os.getenv('SMTP_PORT', '465'))
+SMTP_USER = os.getenv('SMTP_USER', '')
+SMTP_PASSWORD = os.getenv('SMTP_PASSWORD', '')
+SMTP_SSL = os.getenv('SMTP_SSL', 'true').lower() in ('true', '1', 'yes')
+SMTP_FROM = os.getenv('SMTP_FROM', SMTP_USER)
 
 PORTAL_URL = "https://er.siv19.dev/dashboard"
 
-def send_email(email, bday, user):
-    if not resend.api_key:
-        print("Missing RESEND_API_KEY")
+def send_email(to_email, bday, user):
+    if not SMTP_USER or not SMTP_PASSWORD:
+        print("Missing SMTP credentials (SMTP_USER or SMTP_PASSWORD)")
         return
 
     name = bday.get('name', 'Someone')
@@ -85,29 +93,41 @@ def send_email(email, bday, user):
     if age_text:
         subject += f" — {age_text}"
 
+    msg = MIMEMultipart()
+    msg['From'] = SMTP_FROM
+    msg['To'] = to_email
+    msg['Subject'] = subject
+    msg.attach(MIMEText(html, 'html'))
+
     try:
-        r = resend.Emails.send({
-            "from": os.getenv('FROM_EMAIL', 'onboarding@resend.dev'),
-            "to": email,
-            "subject": subject,
-            "html": html
-        })
-        print(f"Email sent to {email}")
+        if SMTP_SSL:
+            server = smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT)
+        else:
+            server = smtplib.SMTP(SMTP_HOST, SMTP_PORT)
+            server.starttls()
+        server.login(SMTP_USER, SMTP_PASSWORD)
+        server.send_message(msg)
+        server.quit()
+        print(f"Email sent via SMTP to {to_email}")
     except Exception as e:
-        print(f"Email Error: {e}")
+        print(f"SMTP Error: {e}")
 
 if __name__ == "__main__":
-    print("Email worker listening...")
+    print(f"Email worker listening on {redis_host}...")
     while True:
-        _, msg = r.brpop("email_queue")
-        data = json.loads(msg)
+        try:
+            _, raw = r.brpop("email_queue")
+            data = json.loads(raw)
 
-        user = data.get('user', {})
-        bday = data.get('birthday', {})
+            user = data.get('user', {})
+            bday = data.get('birthday', {})
 
-        email = user.get('notifications', {}).get('email', {}).get('address')
-        if not email:
-            email = user.get('email')
+            to_email = user.get('notifications', {}).get('email', {}).get('address')
+            if not to_email:
+                to_email = user.get('email')
 
-        if email:
-            send_email(email, bday, user)
+            if to_email:
+                send_email(to_email, bday, user)
+        except Exception as e:
+            print(f"Worker Loop Error: {e}")
+            time.sleep(1)

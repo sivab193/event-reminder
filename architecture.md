@@ -19,7 +19,7 @@ Modern serverless frontend + dockerized backend workers for reliable background 
 - **Workers**: Independent containers (Email, Telegram, Discord) listening to Redis queues
 
 ### 3. Notification Channels
-- **Email**: Resend API
+- **Email**: SMTP (Google Workspace)
 - **Telegram**: Bot API direct messaging
 - **Discord**: Webhook-based channel alerts
 - **Calendar Sync**: Dynamic `.ics` feeds for mobile push notifications

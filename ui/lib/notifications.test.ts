@@ -41,7 +41,7 @@ describe('notifications', () => {
 
   it('should send email notification', async () => {
     await sendEmailNotification('user@example.com', mockBirthday)
-    // Resend mock in vitest.setup.ts should have been called
+    // nodemailer mock in vitest.setup.ts should have been called
   })
 
   it('should send telegram notification', async () => {

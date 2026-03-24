@@ -1,0 +1,25 @@
+name: Deploy Workers to GCE
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'python-workers/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.GCE_HOST }}
+          username: ${{ secrets.GCE_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd ~/event-reminder/python-workers
+            git pull origin main
+            docker compose down
+            docker compose up -d --build
+            docker image prune -f
+            echo "✅ Workers deployed at $(date)"

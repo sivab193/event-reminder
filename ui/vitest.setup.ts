@@ -41,15 +41,17 @@ vi.mock('firebase/firestore', () => ({
   onSnapshot: vi.fn(),
 }))
 
-// Mock Resend as a class using function to be a constructor
-vi.mock('resend', () => {
-  class Resend {
-    emails = {
-      send: vi.fn().mockResolvedValue({ data: { id: "test-id" }, error: null })
-    };
-  }
-  return { Resend }
-})
+// Mock nodemailer
+vi.mock('nodemailer', () => ({
+  default: {
+    createTransport: vi.fn(() => ({
+      sendMail: vi.fn().mockResolvedValue({ messageId: "test-id" }),
+    })),
+  },
+  createTransport: vi.fn(() => ({
+    sendMail: vi.fn().mockResolvedValue({ messageId: "test-id" }),
+  })),
+}))
 
 // Mock global fetch
 global.fetch = vi.fn()

@@ -12,19 +12,23 @@ Dockerized background workers for the Event Reminder notification system. Uses R
                    └───────┘     └────────────────┘
 ```
 
-## Quick Start
+## Quick Start (using Makefile)
 
 ```bash
-# Copy the env template
-cp .env.example .env
-# Edit .env with your actual values
+# 1. Edit your .env with actual values
+# 2. Place your serviceAccountKey.json in this directory
 
-# Start all services
-docker-compose up -d
+# Build and start all services
+make build
 
-# Check logs
-docker-compose logs -f
+# View real-time logs
+make logs
+
+# Stop everything
+make down
 ```
+
+*See `Makefile` for more commands (`make ps`, `make restart`, `make prune`).*
 
 ## Environment Variables
 
@@ -38,9 +42,12 @@ REDIS_HOST=localhost
 # Mount your serviceAccountKey.json as a volume (see docker-compose.yml)
 FIREBASE_CREDENTIALS=/app/serviceAccountKey.json
 
-# Email Worker (Resend)
-RESEND_API_KEY=re_xxxxxxxxxxxx
-FROM_EMAIL=reminders@yourdomain.com
+# Email Worker (SMTP / Google Workspace)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=sivab@siv19.dev
+SMTP_PASSWORD=your_app_password
+SMTP_FROM=no-reply@siv19.dev
 
 # Telegram Worker
 TELEGRAM_BOT_TOKEN=123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11
@@ -51,7 +58,7 @@ TELEGRAM_BOT_TOKEN=123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11
 | Worker | Queue | Dependency | Description |
 |---|---|---|---|
 | **Scheduler** | — | Firebase, Redis | Scans Firestore for today's events, pushes to Redis queues |
-| **Email** | `email_queue` | Resend API | Sends HTML emails with age/duration, portal link |
+| **Email** | `email_queue` | SMTP (smtplib) | Sends HTML emails with age/duration, portal link |
 | **Telegram** | `telegram_queue` | Bot API | Sends Markdown messages via Telegram bot |
 | **Discord** | `discord_queue` | Webhook | Sends rich embeds to Discord channels |
 

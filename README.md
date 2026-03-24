@@ -18,7 +18,7 @@ See **[DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md)** for detailed Firestore schema
 
 ## ✨ Features
 
-- **Multi-Channel Reminders** — Email (Resend), Telegram, Discord with age/duration info
+- **Multi-Channel Reminders** — Email (SMTP / Google Workspace), Telegram, Discord with age/duration info
 - **Timezone Intelligence** — Reminders dispatched relative to the event's timezone
 - **Calendar Sync** — Dynamic `.ics` feeds for Apple/Google calendar subscriptions
 - **Global Reminder Timing** — 6 preset timing options (midnight, 15m before/after, 1h, 6h, 10h)
@@ -68,8 +68,11 @@ Set these in your [Vercel project settings](https://vercel.com/docs/environment-
 | `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` | ✅ | e.g. `your-project.appspot.com` |
 | `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | ✅ | Firebase messaging sender ID |
 | `NEXT_PUBLIC_FIREBASE_APP_ID` | ✅ | Firebase app ID |
-| `RESEND_API_KEY` | ✅ | [Resend](https://resend.com) API key for sending emails |
-| `FROM_EMAIL` | ❌ | Sender email address (default: `onboarding@resend.dev`) |
+| `SMTP_HOST` | ❌ | SMTP server host (default: `smtp.gmail.com`) |
+| `SMTP_PORT` | ❌ | SMTP port (default: `587`) |
+| `SMTP_USER` | ✅ | SMTP login username (e.g. `sivab@siv19.dev`) |
+| `SMTP_PASSWORD` | ✅ | SMTP login password or App Password |
+| `SMTP_FROM` | ❌ | Sender email address (default: `SMTP_USER`, e.g. `no-reply@siv19.dev`) |
 | `TELEGRAM_BOT_TOKEN` | ❌ | Telegram Bot API token (for test notifications) |
 | `CRON_SECRET` | ❌ | Bearer token for `/api/cron/remind` authorization |
 
@@ -82,7 +85,11 @@ NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_storage_bucket
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
-RESEND_API_KEY=re_xxxxxxxxxxxx
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=sivab@siv19.dev
+SMTP_PASSWORD=your_app_password
+SMTP_FROM=no-reply@siv19.dev
 TELEGRAM_BOT_TOKEN=123456:ABC-DEF
 CRON_SECRET=your_secret_here
 ```
@@ -93,8 +100,11 @@ CRON_SECRET=your_secret_here
 |---|---|---|
 | `REDIS_HOST` | ✅ | All workers |
 | `FIREBASE_CREDENTIALS` | ✅ | Scheduler (path to `serviceAccountKey.json`) |
-| `RESEND_API_KEY` | ✅ | Email worker |
-| `FROM_EMAIL` | ❌ | Email worker (default: `onboarding@resend.dev`) |
+| `SMTP_HOST` | ❌ | Email worker (default: `smtp.gmail.com`) |
+| `SMTP_PORT` | ❌ | Email worker (default: `587`) |
+| `SMTP_USER` | ✅ | Email worker |
+| `SMTP_PASSWORD` | ✅ | Email worker |
+| `SMTP_FROM` | ❌ | Email worker (default: `SMTP_USER`) |
 | `TELEGRAM_BOT_TOKEN` | ✅ | Telegram worker |
 
 ### MCP Server
@@ -175,7 +185,7 @@ Run every 5 minutes for accurate reminder dispatch.
 │   └── public/                 # Favicon, manifest, icons
 ├── python-workers/             # Docker-based notification workers
 │   ├── scheduler/              # Firestore scanner → Redis
-│   ├── email_worker/           # Email sender (Resend)
+│   ├── email_worker/           # Email sender (SMTP)
 │   ├── telegram_worker/        # Telegram bot sender
 │   ├── discord_worker/         # Discord webhook sender
 │   └── docker-compose.yml

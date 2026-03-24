@@ -1,8 +1,19 @@
-import { Resend } from "resend"
+import nodemailer from "nodemailer"
 import type { UserProfile } from "./user-profile"
 import type { Birthday } from "./types"
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+const smtpPort = parseInt(process.env.SMTP_PORT || "465")
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST || "smtp.gmail.com",
+  port: smtpPort,
+  secure: smtpPort === 465,
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASSWORD,
+  },
+})
+
+const SMTP_FROM = process.env.SMTP_FROM || process.env.SMTP_USER || ""
 
 const PORTAL_URL = "https://er.siv19.dev/dashboard"
 
@@ -114,8 +125,8 @@ export async function sendEmailNotification(
     </html>
   `
 
-  await resend.emails.send({
-    from: process.env.FROM_EMAIL || "onboarding@resend.dev",
+  await transporter.sendMail({
+    from: SMTP_FROM,
     to: email,
     subject: `🎉 ${eventName} Reminder: ${birthday.name}${ageDuration ? ` — ${ageDuration}` : ''}`,
     html,
