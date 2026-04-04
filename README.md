@@ -19,6 +19,7 @@ See **[DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md)** for detailed Firestore schema
 ## ✨ Features
 
 - **Multi-Channel Reminders** — Email (SMTP / Google Workspace), Telegram, Discord with age/duration info
+- **Queue-Based Email System** — Verification and reminder emails processed asynchronously via Redis for reliability and scale
 - **Timezone Intelligence** — Reminders dispatched relative to the event's timezone
 - **Calendar Sync** — Dynamic `.ics` feeds for Apple/Google calendar subscriptions
 - **Global Reminder Timing** — 6 preset timing options (midnight, 15m before/after, 1h, 6h, 10h)
@@ -70,14 +71,10 @@ Set these in your [Vercel project settings](https://vercel.com/docs/environment-
 | `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` | ✅ | e.g. `your-project.appspot.com` |
 | `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | ✅ | Firebase messaging sender ID |
 | `NEXT_PUBLIC_FIREBASE_APP_ID` | ✅ | Firebase app ID |
-| `SMTP_HOST` | ❌ | SMTP server host (default: `smtp.gmail.com`) |
-| `SMTP_PORT` | ❌ | SMTP port (default: `587`) |
-| `SMTP_USER` | ✅ | SMTP login username (e.g. `your-email@gmail.com`) |
-| `SMTP_PASSWORD` | ✅ | SMTP login password or App Password |
-| `SMTP_FROM` | ❌ | Sender email address (default: `SMTP_USER`, e.g. `noreply@yourdomain.com`) |
-| `PORTAL_URL` | ❌ | Optional portal URL for notification links (default: `https://your-domain.com/dashboard`) |
-| `TELEGRAM_BOT_TOKEN` | ❌ | Telegram Bot API token (for test notifications) |
 | `CRON_SECRET` | ❌ | Bearer token for `/api/cron/remind` authorization |
+| `PORTAL_URL` | ❌ | Optional portal URL for notification links (default: `https://your-domain.com/dashboard`) |
+
+> **Note:** SMTP, Telegram, and Discord credentials are **no longer needed on Vercel**. Email and verification codes are now processed asynchronously by Docker workers, not by the Next.js API routes.
 
 ### Local Development (`ui/.env.local`)
 
@@ -88,14 +85,11 @@ NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_storage_bucket
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=your-email@gmail.com
-SMTP_PASSWORD=your_app_password
-SMTP_FROM=noreply@yourdomain.com
 TELEGRAM_BOT_TOKEN=123456:ABC-DEF
 CRON_SECRET=your_secret_here
 ```
+
+> **Note:** During local development, SMTP/email functionality requires the Python workers to be running. The Next.js frontend creates jobs in Firestore; the scheduler and email worker process them asynchronously.
 
 ### Workers (`python-workers/.env`)
 
@@ -150,9 +144,17 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
     }
+    match /email_jobs/{jobId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow update: if request.auth != null && request.auth.uid == resource.data.userId && 
+                       only(['status', 'verifiedAt'].hasAny(request.resource.data.diff(resource.data).affectedKeys()));
+    }
   }
 }
 ```
+
+**Note:** Python workers use Firebase Admin SDK with service account credentials, so they bypass these rules for scheduler operations.
 
 ---
 

@@ -58,21 +58,56 @@ Stores individual tracked events for users.
 }
 ```
 
+### `email_jobs` Collection
+
+Stores asynchronous email verification jobs (queue-based pattern).
+**Document ID**: Auto-generated UUID in `id` field
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000", // UUID
+  "userId": "firebase_auth_uid", // Foreign key to users collection
+  "type": "verification", // Enum: 'verification'
+  "channel": "email", // Enum: 'email', 'telegram', 'discord'
+  "identifier": "user@example.com", // Email address or channel-specific identifier
+  "code": "123456", // 6-digit verification code
+  "status": "pending", // Enum: 'pending' → 'queued' → 'sent' / 'failed' / 'verified'
+  "createdAt": 1711200600000, // Timestamp when job was created
+  "expiresAt": 1711201500000, // Timestamp when job expires (15 minutes)
+  "verifiedAt": null // Timestamp when user verified the code (null until verified)
+}
+```
+
+**Status Transitions:**
+- `pending` → `queued`: Scheduler picks up job and pushes to Redis queue
+- `queued` → `sent`: Email worker successfully sent verification email
+- `queued` → `failed`: Email worker failed to send (retry in next cycle)
+- `sent` → `verified`: User submitted correct code via `/api/verify/check`
+
 ---
 
 ## 2. Notification Data Flow
 
-The architecture decouples the event scanning from the notification dispatching using Redis as a message broker.
-### Redis Idempotency
-The scheduler prevents duplicate notifications by reserving a send key before dispatching. The idempotency key format is:
+The architecture uses two parallel flows: **Birthday Reminders** and **Email Verification** (both queue-based patterns using Firestore, Redis, and Python workers).
 
-```text
-sent:{userId}:{birthdayId}:{YYYY-MM-DD}
+### Birthday Reminder Flow
+
+```mermaid
+graph TD
+    A[Firestore: birthdays] -->|Scheduler queries| B(Python Scheduler)
+    B -->|Checks timezone & reminderTiming| B
+    B -->|Pushes JSON to| C[(Redis Broker)]
+    C -->|email_queue| D[Email Worker]
+    C -->|telegram_queue| E[Telegram Worker]
+    C -->|discord_queue| F[Discord Worker]
+    D --> G(SMTP / Gmail)
+    E --> H(Telegram Bot API)
+    F --> I(Discord Webhook)
+    style A fill:#e1f5ff
+    style C fill:#fff3e0
 ```
 
-### Queue Payload Schema
-The scheduler pushes event payloads into channel-specific queues with the following structure:
-
+**Reminder Queue Payload:**
 ```json
 {
   "userId": "firebase_auth_uid",
@@ -81,44 +116,88 @@ The scheduler pushes event payloads into channel-specific queues with the follow
 }
 ```
 
-This allows workers to remain stateless and rely solely on the payload for dispatch.
+### Email Verification Flow
+
 ```mermaid
 graph TD
-    A[Firestore DB] -->|Queried by| B(Python Scheduler)
-    B -->|Pushes JSON to| C[(Redis Broker)]
-    C -->|Pops from email_queue| D[Email Worker]
-    C -->|Pops from telegram_queue| E[Telegram Worker]
-    C -->|Pops from discord_queue| F[Discord Worker]
-    D --> G(SMTP / Gmail)
-    E --> H(Telegram Bot API)
-    F --> I(Discord Webhook)
+    A1[UI: /api/verify/send] -->|Creates job| B1[Firestore: email_jobs]
+    B1["status: pending<br/>expiresAt: now + 15m"] -->|Returns jobId| C1[UI subscribes<br/>onSnapshot]
+    B1 -->|Scheduler queries| D1(Python Scheduler)
+    D1 -->|Pushes to| E1[(Redis)]
+    E1["email_verification_queue<br/>telegram_verification_queue<br/>discord_verification_queue"] -->|Worker pops| F1[Email/Telegram/Discord Worker]
+    F1 -->|Sends code| G1[User's channel]
+    F1 -->|status: sent| B1
+    G1 -->|User submits code| A2[UI: /api/verify/check]
+    A2 -->|Validates & updates| B1
+    B1["status: verified"] -->|Real-time update| C1["Shows toast:<br/>Verified!"]
+    style B1 fill:#f3e5f5
+    style E1 fill:#fff3e0
+    style C1 fill:#e8f5e9
 ```
 
-### 1. The Scheduler (`python-workers/scheduler/main.py`)
-- Runs continuously (checks daily or hourly).
-- Iterates over all `users`.
-- Queries the `birthdays` collection for events belonging to that user where the `birthdate` month and day match the current date in the event's `timezone`.
-- Note: It also offsets the exact dispatch time based on the user's global `reminderTiming` preference (e.g., waiting until 10:00 AM if `+10h` is set).
-
-### 2. Redis Message Format
-
-When the scheduler determines an event needs a notification, it pushes a JSON string into specific Redis lists (`email_queue`, `telegram_queue`, `discord_queue`) based on the user's enabled channels.
-
-**Queue Payload Schema:**
+**Verification Job Payload (in Redis queue):**
 ```json
 {
+  "id": "uuid",
   "userId": "firebase_auth_uid",
-  "user": {
-    // The full user document from Firestore (see schema above)
-  },
-  "birthday": {
-    // The full birthday document from Firestore (see schema above)
-  }
+  "type": "verification",
+  "channel": "email",
+  "identifier": "user@example.com",
+  "code": "123456",
+  "createdAt": 1711200600000,
+  "expiresAt": 1711201500000
 }
 ```
 
-### 3. The Workers
-- Run infinite loops doing `brpop` (blocking pop) on their respective Redis lists.
-- **Stateless**: They do not query Firestore. They rely entirely on the payload sent by the scheduler.
-- **Compute**: They calculate the age/duration (e.g., `Current Year - Event Year`) if `unknownYear` is false.
-- **Dispatch**: They format the message (HTML for email, Markdown for Telegram, Rich Embed for Discord) and send it via HTTP requests to external APIs.
+### Redis Idempotency (Reminder Flow)
+
+The scheduler prevents duplicate birthday reminder notifications by reserving a send key before dispatching:
+
+```text
+sent:{userId}:{birthdayId}:{YYYY-MM-DD}
+```
+
+### Key Differences: Reminders vs Verification
+
+| Aspect | Reminder | Verification |
+|--------|----------|--------------|
+| **Trigger** | Scheduler (daily schedule) | User action (enable notification) |
+| **Job Storage** | No persistence (stateless) | Firestore `email_jobs` collection |
+| **Expiration** | Idempotency key in Redis | 15 minutes in Firestore |
+| **Status Tracking** | Implicit (sent if no error) | Explicit (pending → queued → sent → verified) |
+| **Real-time UI** | Polling `/api/sync-stats` | Firebase `onSnapshot()` listener |
+| **Retry** | Scheduler loop (24h window) | Scheduler loop every 60s |
+
+### Scheduler Operation
+
+The scheduler (`python-workers/scheduler/main.py`) runs continuously with two processes:
+
+**1. Birthday Reminder Process** (every hour)
+- Queries `users` and `birthdays` collections
+- Calculates which events occur today (in each user's timezone)
+- Checks idempotency key: `sent:{userId}:{birthdayId}:{YYYY-MM-DD}`
+- Pushes to channel-specific queues: `email_queue`, `telegram_queue`, `discord_queue`
+
+**2. Email Verification Process** (every 60 seconds)
+- Queries `email_jobs` where `status == 'pending'` and `expiresAt > now`
+- Pushes to verification queues: `email_verification_queue`, `telegram_verification_queue`, `discord_verification_queue`
+- Updates job `status` to `queued`
+
+### Workers (Stateless Processing)
+
+All workers run infinite loops doing `BRPOP` (blocking pop) on their respective Redis queues:
+
+**Email Worker**
+- Listens to: `email_queue` (reminders) + `email_verification_queue` (codes)
+- Sends via: SMTP
+- Updates Firestore with status: `sent` or `failed`
+
+**Telegram Worker**
+- Listens to: `telegram_queue` (reminders) + `telegram_verification_queue` (codes)
+- Sends via: Telegram Bot API
+- Returns: 200 OK (no Firestore persistence for reminders)
+
+**Discord Worker**
+- Listens to: `discord_queue` (reminders) + `discord_verification_queue` (codes)
+- Sends via: Discord Webhook
+- Returns: 204 No Content (no Firestore persistence for reminders)

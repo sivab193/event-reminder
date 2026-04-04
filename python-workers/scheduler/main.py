@@ -171,11 +171,56 @@ def check_birthdays():
                 print(f"Error processing birthday {bday}: {e}")
 
 
+def process_email_jobs():
+    """Process pending email verification/reminder jobs from Firestore."""
+    if not db:
+        return
+    
+    try:
+        now = int(time.time() * 1000)  # milliseconds
+        
+        # Query pending email jobs that haven't expired
+        email_jobs_ref = db.collection('email_jobs')
+        jobs = email_jobs_ref.where('status', '==', 'pending').where('expiresAt', '>', now).stream()
+        
+        job_count = 0
+        for job_doc in jobs:
+            job = job_doc.to_dict()
+            job_id = job_doc.id
+            channel = job.get('channel', 'email')
+            
+            try:
+                # Push to appropriate queue based on channel
+                payload = json.dumps(job)
+                
+                if channel == 'email':
+                    r.lpush('email_verification_queue', payload)
+                elif channel == 'telegram':
+                    r.lpush('telegram_verification_queue', payload)
+                elif channel == 'discord':
+                    r.lpush('discord_verification_queue', payload)
+                
+                # Mark job as queued
+                job_doc.reference.update({'status': 'queued'})
+                job_count += 1
+                
+            except Exception as e:
+                print(f"Error processing email job {job_id}: {e}")
+                job_doc.reference.update({'status': 'failed'})
+        
+        if job_count > 0:
+            print(f"  ✓ Queued {job_count} email job(s)")
+            
+    except Exception as e:
+        print(f"Error in process_email_jobs: {e}")
+
+
 if __name__ == "__main__":
     print(f"Scheduler started (interval: {CHECK_INTERVAL}s)")
     while True:
         try:
             check_birthdays()
+            process_email_jobs()
         except Exception as e:
             print(f"Scheduler loop error: {e}")
         time.sleep(CHECK_INTERVAL)

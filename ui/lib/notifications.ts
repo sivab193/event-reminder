@@ -2,20 +2,20 @@ import nodemailer from "nodemailer"
 import type { UserProfile } from "./user-profile"
 import type { Birthday } from "./types"
 
-const smtpPort = parseInt(process.env.SMTP_PORT || "465")
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || "smtp.gmail.com",
-  port: smtpPort,
-  secure: smtpPort === 465,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASSWORD,
-  },
-})
+const PORTAL_URL = "https://your-domain.com/dashboard"
 
-const SMTP_FROM = process.env.SMTP_FROM || process.env.SMTP_USER || ""
-
-const PORTAL_URL = "https://er.siv19.dev/dashboard"
+function getEmailTransporter() {
+  const smtpPort = parseInt(process.env.SMTP_PORT || "587")
+  return nodemailer.createTransport({
+    host: process.env.SMTP_HOST || "smtp.gmail.com",
+    port: smtpPort,
+    secure: smtpPort === 465,
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASSWORD,
+    },
+  })
+}
 
 function getEventLabel(birthday: Birthday): string {
   if (birthday.type && birthday.type !== 'birthday') {
@@ -61,6 +61,14 @@ export async function sendEmailNotification(
   email: string,
   birthday: Birthday,
 ) {
+  // Compute SMTP_FROM on each call (not at module load time) to avoid Vercel env caching issues
+  const SMTP_FROM = process.env.SMTP_FROM || process.env.SMTP_USER || ""
+  
+  if (!SMTP_FROM || !process.env.SMTP_USER || !process.env.SMTP_PASSWORD) {
+    console.error("Email SMTP not fully configured")
+    return
+  }
+
   const formattedDate = formatDate(birthday.birthdate, !birthday.unknownYear)
   const eventName = getEventLabel(birthday)
   const ageDuration = computeAgeDuration(birthday)
@@ -125,6 +133,7 @@ export async function sendEmailNotification(
     </html>
   `
 
+  const transporter = getEmailTransporter()
   await transporter.sendMail({
     from: SMTP_FROM,
     to: email,

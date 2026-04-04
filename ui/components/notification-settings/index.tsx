@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
+import { onSnapshot, doc } from "firebase/firestore"
+import { db } from "@/lib/firebase"
 import { Loader2, Mail, Send, MessageSquare, Calendar, Copy, Clock, CheckCircle2, AlertCircle, Info } from "lucide-react"
 
 export function NotificationSettings() {
@@ -24,12 +26,36 @@ export function NotificationSettings() {
   const [verificationCode, setVerificationCode] = useState("")
   const [sendingChannel, setSendingChannel] = useState<string | null>(null)
   const [checkingCode, setCheckingCode] = useState(false)
+  const [currentJobId, setCurrentJobId] = useState<string | null>(null)
+  const [jobStatus, setJobStatus] = useState<string>("idle") // idle, queued, sent, failed
 
   useEffect(() => {
     if (user) {
       loadProfile()
     }
   }, [user])
+
+  // Monitor email job status in real-time
+  useEffect(() => {
+    if (!currentJobId) return
+
+    const unsubscribe = onSnapshot(doc(db, "email_jobs", currentJobId), (snap) => {
+      if (snap.exists()) {
+        const status = snap.data().status
+        setJobStatus(status)
+        
+        if (status === "sent") {
+          toast({ title: "Code sent!", description: "Check your channel for the verification code." })
+        } else if (status === "failed") {
+          toast({ title: "Failed to send code", description: "Please try again.", variant: "destructive" })
+          setCurrentJobId(null)
+          setSendingChannel(null)
+        }
+      }
+    })
+
+    return () => unsubscribe()
+  }, [currentJobId, toast])
 
   const loadProfile = async () => {
     if (!user) return
@@ -77,6 +103,8 @@ export function NotificationSettings() {
       if (data.success) {
         setVerifyingChannel(channel)
         setVerificationCode("")
+        setCurrentJobId(data.jobId)
+        setJobStatus("pending")
         setVerifyModalOpen(true)
         toast({ title: "Code Sent", description: "Please check your channel for the verification code." })
       } else {

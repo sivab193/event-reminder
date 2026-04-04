@@ -5,11 +5,34 @@ Dockerized background workers for the Event Reminder notification system. Uses R
 ## Architecture
 
 ```
-┌────────────┐     ┌───────┐     ┌────────────────┐
-│  Scheduler │────▶│ Redis │────▶│ Email Worker   │
-│ (Firestore)│     │       │────▶│ Telegram Worker│
-└────────────┘     │       │────▶│ Discord Worker │
-                   └───────┘     └────────────────┘
+VERIFICATION FLOW:
+┌──────────────────────────────────────────────────────┐
+│ UI: User clicks "Send Code"                          │
+│ ↓                                                    │
+│ Creates doc in Firestore: email_jobs collection      │
+│ ↓ (Returns immediately, no blocking)                 │
+│ User sees real-time status via onSnapshot listener   │
+│ ↓                                                    │
+│ Scheduler polls email_jobs (every 60s)               │
+│ ↓                                                    │
+│ Pushes to Redis: email_verification_queue            │
+│ ↓                                                    │
+│ Email Worker picks up and sends via SMTP             │
+│ ↓                                                    │
+│ Updates job status → "sent" (UI listener updates)    │
+└──────────────────────────────────────────────────────┘
+
+REMINDER FLOW:
+┌──────────────────────────────────────────────────────┐
+│ Scheduler: Checks today's birthdays (every 60s)      │
+│ ↓ (Firestore query by date & timezone)               │
+│ Pushes to Redis queues:                              │
+│   • email_queue                                      │
+│   • telegram_queue                                   │
+│   • discord_queue                                    │
+│ ↓                                                    │
+│ Workers listen and send notifications (Email/Tg/Dc) │
+└──────────────────────────────────────────────────────┘
 ```
 
 ## Quick Start (using Makefile)
@@ -85,13 +108,43 @@ run_tests.bat
 
 ## Workers
 
-| Worker | Queue | Dependency | Description |
+| Worker | Input Queues | Dependency | Description |
 |---|---|---|---|
-| **Scheduler** | — | Firebase, Redis | Scans Firestore for today's events, pushes to Redis queues |
-| **Email** | `email_queue` | SMTP (smtplib) | Sends HTML emails with age/duration, portal link |
-| **Telegram** | `telegram_queue` | Bot API | Sends Markdown messages via Telegram bot |
-| **Discord** | `discord_queue` | Webhook | Sends rich embeds to Discord channels |
+| **Scheduler** | Firestore: `email_jobs`, `birthdays` | Firebase, Redis | Scans for today's events and pending email jobs, pushes to Redis queues |
+| **Email** | `email_queue`, `email_verification_queue` | SMTP (smtplib), Firebase | Sends birthday reminders and verification codes via SMTP |
+| **Telegram** | `telegram_queue`, `telegram_verification_queue` | Bot API | Sends birthday reminders and codes via Telegram |
+| **Discord** | `discord_queue`, `discord_verification_queue` | Webhook | Sends birthday reminders and codes via Discord |
 | **Bulk Importer** | — | Firebase, CSV | One-time import of events from CSV file |
+
+## Email Verification Flow
+
+When a user enables email notifications, they receive a verification code:
+
+1. **UI Creates Job** (`/api/verify/send`)
+   - Creates document in `email_jobs` collection with status `pending`
+   - Returns `jobId` immediately to user
+   - UI subscribes to real-time updates on this job document
+
+2. **Scheduler Processes** (`process_email_jobs`)
+   - Runs every 60 seconds
+   - Queries `email_jobs` where `status == 'pending'` and `expiresAt > now`
+   - Pushes to `email_verification_queue` in Redis
+   - Updates job status to `queued`
+
+3. **Email Worker Sends**
+   - Listens to `email_verification_queue`
+   - Sends verification code via SMTP
+   - Updates job status to `sent` or `failed` in Firestore
+
+4. **UI Shows Status**
+   - Real-time listener on job doc triggers toast notification
+   - User sees "Code sent!" when status becomes `sent`
+
+**Advantages:**
+- ✅ No timeout risk (UI returns instantly)
+- ✅ Built-in retries via scheduler loop
+- ✅ Audit trail in Firestore
+- ✅ Works with scale (multiple email workers)
 
 ## Bulk Import
 
