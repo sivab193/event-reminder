@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { doc, setDoc, serverTimestamp } from "firebase/firestore"
 import { db } from "@/lib/firebase"
-import { v4 as uuid } from "uuid"
+import { randomUUID } from "crypto"
 
 export async function POST(request: Request) {
   try {
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
 
     // Create email/verification job in Firestore
     // The scheduler will pick this up and push to Redis queue
-    const jobId = uuid()
+    const jobId = randomUUID()
     const expiresAt = Date.now() + 15 * 60 * 1000 // 15 minutes
 
     await setDoc(doc(db, "email_jobs", jobId), {
